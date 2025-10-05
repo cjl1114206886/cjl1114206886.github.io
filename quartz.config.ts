@@ -10,6 +10,7 @@ const config: QuartzConfig = {
   configuration: {
     pageTitle: "CJL Blog",
     pageTitleSuffix: "",
+    favicon: "icon.png",
     enableSPA: true,
     enablePopovers: true,
     analytics: {

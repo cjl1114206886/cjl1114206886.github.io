@@ -1,0 +1,146 @@
+## 网络接口
+
+```C
+网络协议和驱动程序
+
+ gPRC
+1.gRPC负载均衡和微服务架构用负载均衡拆分流量，发给为服务架构。
+微服务架构就是把业务拆分成多块。拆分之后，服务和服务之间发生的是进程之间的调用或者服务器与服务器之间的调用。也就需要发起调用，有网络调用的http(性能低)和RPC(远程过程调用，通过自定义协议发起tcp调用，加快传输效率)
+gRPC是一款语言中立，平台中立的远程调用系统数据在网络传输中需要序列化，常见的序列化协议有：xml，json，protobuf（grpc默认使用的是这个，这是google开源的一套成熟的开源序列化协议）
+序列化：将数据结构或对象转化成二进制串的过程反序列化：将二进制串转化成数据结构或对象的过程
+2.RPC:remote protocol call相当于云函数，更多用于c/s架构，http更多用于b/s架构
+百度网盘:既需要支持客户端又需要支持网页端，所以他及需要B/S和C/S架构http23.
+发展历史70s：tcp->rpc(80s)->http(90s)
+
+```
+
+![](https://u0b8ml0m3m.feishu.cn/space/api/box/stream/download/asynccode/?code=YmNhY2Y4YWEzZTVlNzNiNzE3OGVlZjE1ZjM5ZWFjOTdfdFNPVkVubDhVN2ZrY2dtanV5ME94eUl3cldjNDY0bjZfVG9rZW46UTkwcmIzM2g3b09LWTJ4aVV5OWNheTRUbkJlXzE3NTk1NjczNTM6MTc1OTU3MDk1M19WNA)
+
+```C++
+序列化
+protobuf，适合于高性能的场景，因为protobuf是二进制数据，需要编码和解码。
+数据本身不具有可读性。只有反序列化之后才可以读到真正的数据。flatbuffer
+```
+
+### Flatbuffer
+
+```C++
+flatbuffer:
+https://flatbuffers.dev/flatbuffers_guide_tutorial.html
+table:
+表是在FlatBuffers中定义对象的主要方式，由名称（这里是Monster）和字段列表组成。每个字段都有一个名称、一个类型和一个默认值（可选）。
+如果架构中没有指定默认值，则对于标量类型，默认值为0，
+对于其他类型，默认值为null。
+
+只能在表定义的末尾在模式中添加新字段。旧的数据仍然可以正确读取，并且在读取时给予默认值。旧的代码将直接忽略新字段。如果你想灵活地使用模式中字段的任何顺序，你可以手动分配id（很像Protocol Buffers）
+您不能从模式中删除不再使用的字段，但您可以简单地停止将它们写入数据，以获得几乎相同的效果。此外，你可以像上面的例子一样将它们标记为deprecated;将防止在生成的C++中生成访问器，作为一种强制不再使用该字段的方法。（注意：这可能会破坏代码！）
+
+struct:
+与表类似，只是现在没有字段是可选的（因此也没有默认值），
+并且字段可能不会被添加或弃用。
+结构只能包含标量或其他结构。
+对于简单的对象，你非常确定不会进行任何更改（在示例Vec3中非常清楚）。结构比表使用更少的内存，访问速度更快（它们总是内联存储在父对象中，并且不使用虚拟表）。
+Built-in scalar types are内置标量类型是
+8 bit: byte (int8), ubyte (uint8), bool
+16 bit: short (int16), ushort (uint16)
+32 bit: int (int32), uint (uint32), float (float32)
+64 bit: long (int64), ulong (uint64), double (float64)
+括号中的类型名称是别名，例如uint8可以代替ubyte，int32可以代替int，而不会影响代码生成。
+
+Built-in non-scalar types:内置非标量类型：
+任何其他类型的向量（用[type]表示）。不支持嵌套向量，相反，您可以将内部向量包装在表中。
+string，它只能保存UTF-8或7位ASCII。对于其他文本编码或一般的二进制数据，请使用矢量（[byte]或[ubyte]）。
+
+Array阵列
+struct Vec3 {
+    x:float;
+    y:float;
+    z:float;
+}
+ 等价： 
+struct Vec3 {
+    v:[float:3];
+}
+具有默认值的字段实际上并不存储在序列化数据中
+
+枚举:enum
+仅允许整数类型，即byte、ubyte、short、ushort、int、uint、long和ulong
+enum Color:byte { Red = 0, Green, Blue = 2 }
+使用:（在本例中为byte）指定了枚举的底层整型
+默认的第一个值是0
+枚举值应该只被添加，永远不会被删除;there is no deprecation for enums
+
+Unions联合体
+您使用的不是常量的新名称，而是表的名称，生成一个后缀为_type的字段，它保存相应的枚举值
+
+table PointPosition { x:uint; y:uint; }
+table MarkerPosition {}
+union Position {
+  Start:MarkerPosition,
+  Point:PointPosition,
+  Finish:MarkerPosition
+}
+它必须始终是表的一部分，它本身不能是FlatBuffer的根
+只有在C++中才有对联合向量（和类型）的实验性支持。
+在上面的示例IDL文件中，使用[Any]将Any向量添加到Monster表。除了联合中的表之外，还有对其他类型的实验性支持，特别是结构和字符串。
+联合中没有直接支持标量，但它们可以被包装在结构中，而不需要占用空间。
+
+联合确实有成本，所以联合的替代方案是拥有一个单一的表
+
+namespace命令空间
+您可以使用.指定嵌套的命名空间/包。
+
+include 包括:
+include "mydefinitions.fbs";
+include自动确保头文件只引用一次，即使他被多次引用
+
+RPC接口声明
+您可以在模式中声明RPC调用，定义一组函数，将FlatBuffer作为参数（请求）并返回FlatBuffer作为响应（两者都必须是表类型）
+rpc_service MonsterStorage {
+  Store(Monster):StoreResponse;
+  Retrieve(MonsterId):Monster;
+}
+
+注释：
+一行中的三重注释（///）本身表明注释是它后面一行中声明的任何内容（表/结构/字段/枚举/联合/元素）的文档，并且注释在相应的C++代码中输出。
+
+属性
+比如deprecated
+
+JSON：
+解析上述模式声明的解析器也能够解析符合此模式的JSON对象。因此，与其他JSON解析器不同，此解析器是强类型的，并直接解析为FlatBuffer
+
+schema命名风格：
+Table, struct, enum and rpc names (types): UpperCamelCase.
+表、结构、枚举和rpc名称（类型）：UpperCamelCase。
+Table and struct field names: snake_case. This is translated to lowerCamelCase automatically for some languages, e.g. Java.
+表和结构体字段名：snake_case。对于某些语言，例如Java，它会自动转换为小写CamelCase。
+Enum values: UpperCamelCase.枚举值：UpperCamelCase。
+namespaces: UpperCamelCase.名称空间：UpperCame
+
+Opening brace: on the same line as the start of the declaration.
+左大括号：与声明的开始在同一行。
+Spacing: Indent by 2 spaces. None around : for types, on both sides for =.
+间距：缩进2个空格。对于类型，:周围无，对于=两侧无。
+```
+
+```C++
+1.下载flatc ：https://github.com/google/flatbuffers/releases
+2.写fbs
+3.生成./flatc --cpp -o Resources/Sample  sample.fbs
+Resources/Sample是需要生成的文件 sample.fbs是参考的fbs
+```
+
+```C++
+接口定义语言（Interface Definition Language，IDL）是一种用于描述软件组件之间通信接口的语言。
+CORBA IDL（Common Object Request Broker Architecture Interface Definition Language）：用于描述 CORBA 中对象之间的接口和通信。
+gRPC：使用 Protocol Buffers 作为消息序列化协议，使用 protobuf 文件定义接口和数据结构。->易于使用用protobuf，追求效率使用flatbuffer
+Apache Thrift：Apache 开发的跨语言的服务框架，使用 Thrift IDL 来定义接口。
+SOAP（Simple Object Access Protocol）：使用 WSDL（Web Services Description Language）来定义接口。
+```
+
+### Protobuf
+
+```C++
+protoc-3.12.4.0 --cpp_out=. RoadLinePerception.proto 
+```

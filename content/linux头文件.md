@@ -10,6 +10,11 @@ https://mirrors.edge.kernel.org/pub/linux/kernel/v6.x/
 [linx日志](linux日志)
 
 [命令解析器（bash和shell）](命令解析器（bash和shell）)
+
+[进程间调度IPC](进程间调度IPC)
+
+[gcc/gdb](gcc/gdb)
+
 ##  `#include <errno.h>`
 ```
 
